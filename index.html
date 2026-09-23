@@ -518,7 +518,7 @@ $('btn-to-dashboard').addEventListener('click', () => {
   watchAuth((user) => {
     if (!user) {
       localStorage.removeItem("bq_user");
-      window.location.href = "./auth/auth.html";
+      window.location.href = "./auth.html";
       return;
     }
 
