@@ -1,0 +1,9 @@
+{
+  "name": "Torchbearers Bible Quiz",
+  "short_name": "Bible Quiz",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fcf8f5",
+  "theme_color": "#ce4d1c",
+  "description": "Bible Quiz platform for learning and playing Bible quizzes."
+}

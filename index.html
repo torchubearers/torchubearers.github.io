@@ -125,35 +125,11 @@
   .sheet-scroll{max-height:56vh; overflow-y:auto; margin-top:6px; padding-right:4px;}
   .sheet-num{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--tan); color:var(--ink); font-size:.72rem; margin-right:8px; flex-shrink:0; font-weight:700;}
 </style>
+<link rel="manifest" href="./manifest.webmanifest">
 </head>
 <body data-theme="adults">
 
-<!-- SCREEN 1: LOGIN -->
-<div class="screen active" id="scr-login">
-  <div class="card">
-    <h1>Bible Quiz</h1>
-    <p class="sub">Sign in to start playing · ఆడటానికి సైన్ ఇన్ చేయండి</p>
-    <div class="row2" id="pick-mode">
-      <button class="chip selected" data-val="login">Login</button>
-      <button class="chip" data-val="register">Register</button>
-    </div>
-    <div id="name-field">
-      <label for="in-name">Your name</label>
-      <input type="text" id="in-name" placeholder="e.g. Ruth">
-    </div>
-    <label for="in-phone">Mobile number</label>
-    <input type="tel" id="in-phone" placeholder="10-digit number" maxlength="10">
-    <div id="otp-section" style="display:none;">
-      <label for="in-otp">Enter the OTP sent to your phone</label>
-      <div class="otp-box"><input type="number" id="in-otp" placeholder="4-digit code" maxlength="4"></div>
-      <div class="demo-otp" id="demo-otp-note"></div>
-    </div>
-    <div class="err" id="login-err"></div>
-    <button class="btn" id="btn-send-otp">Send OTP</button>
-    <button class="btn" id="btn-verify-otp" style="display:none;">Verify &amp; Continue</button>
-    <p class="hint">Demo build: OTP is simulated on-device since no SMS gateway is connected. Wire a provider like Twilio/MSG91 into a backend to send real texts.</p>
-  </div>
-</div>
+
 
 <!-- SCREEN 2: WELCOME -->
 <div class="screen" id="scr-welcome">
@@ -276,8 +252,7 @@
   "use strict";
   const BANK = JSON.parse(document.getElementById('bank-data').textContent);
   const state = {
-    user: JSON.parse(localStorage.getItem('bq_user') || 'null'),
-    mode: 'login', genOtp: null,
+    user: null,
     lang: 'en', age: 'kids', level: 1, count: 10,
     quiz: [], idx: 0, answers: []
   };
@@ -288,68 +263,30 @@
   }
   function setTheme(age){ document.body.setAttribute('data-theme', age === 'kids' ? 'kids' : 'adults'); }
 
-  /* --- local "user directory" (demo only, stored in this browser) --- */
-  function loadUsers(){ return JSON.parse(localStorage.getItem('bq_users') || '{}'); }
-  function saveUser(u){
-    const users = loadUsers(); users[u.phone] = u;
-    localStorage.setItem('bq_users', JSON.stringify(users));
-  }
-  function findUser(phone){ return loadUsers()[phone] || null; }
-
-  /* LOGIN / REGISTER */
-  document.querySelectorAll('#pick-mode .chip').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('#pick-mode .chip').forEach(b=>b.classList.remove('selected'));
-      btn.classList.add('selected');
-      state.mode = btn.dataset.val;
-      $('name-field').style.display = state.mode === 'register' ? 'block' : 'none';
-      $('login-err').textContent = '';
-    });
-  });
-  $('name-field').style.display = 'none';
-
-  $('btn-send-otp').addEventListener('click', ()=>{
-    const phone = $('in-phone').value.trim();
-    const name = $('in-name').value.trim();
-    $('login-err').textContent = '';
-    if(!/^\d{10}$/.test(phone)){ $('login-err').textContent = 'Enter a valid 10-digit mobile number.'; return; }
-    if(state.mode === 'register' && !name){ $('login-err').textContent = 'Please enter your name.'; return; }
-    if(state.mode === 'login' && !findUser(phone)){ $('login-err').textContent = 'No account found for this number — switch to Register.'; return; }
-    if(state.mode === 'register' && findUser(phone)){ $('login-err').textContent = 'An account already exists — switch to Login instead.'; return; }
-    state.genOtp = String(Math.floor(1000 + Math.random()*9000));
-    $('otp-section').style.display = 'block';
-    $('demo-otp-note').textContent = 'Demo OTP (no real SMS sent): ' + state.genOtp;
-    $('btn-send-otp').style.display = 'none'; $('btn-verify-otp').style.display = 'block';
-  });
-  $('btn-verify-otp').addEventListener('click', ()=>{
-    const otp = $('in-otp').value.trim();
-    $('login-err').textContent = '';
-    if(otp !== state.genOtp){ $('login-err').textContent = 'Incorrect OTP, please try again.'; return; }
-    const phone = $('in-phone').value.trim();
-    let user;
-    if(state.mode === 'register'){
-      user = { name: $('in-name').value.trim(), phone };
-      saveUser(user);
-    } else {
-      user = findUser(phone);
-    }
+  /* FIREBASE AUTH STATE */
+  window.addEventListener('firebase-auth-state', ({ detail: user }) => {
     state.user = user;
-    localStorage.setItem('bq_user', JSON.stringify(state.user));
-    $('welcome-name').textContent = 'Welcome, ' + state.user.name + '!';
+    localStorage.setItem('bq_user', JSON.stringify(user));
+    $('welcome-name').textContent = 'Welcome, ' + user.name + '!';
     show('scr-welcome');
   });
-  $('btn-to-setup').addEventListener('click', ()=> show('scr-setup'));
-  $('btn-to-dashboard').addEventListener('click', ()=>{ renderDashboard(); show('scr-dashboard'); });
-  $('btn-dash-back').addEventListener('click', ()=> show('scr-welcome'));
-  $('btn-logout').addEventListener('click', ()=>{
-    localStorage.removeItem('bq_user'); state.user = null;
-    $('in-name').value=''; $('in-phone').value=''; $('in-otp').value='';
-    $('otp-section').style.display='none';
-    $('btn-send-otp').style.display='block'; $('btn-verify-otp').style.display='none';
-    show('scr-login');
-  });
 
-  /* SETUP */
+  $('btn-logout').addEventListener('click', async () => {
+    try {
+      await window.firebaseLogout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  });
+$('btn-to-setup').addEventListener('click', () => {
+  show('scr-setup');
+});
+
+$('btn-to-dashboard').addEventListener('click', () => {
+  renderDashboard();
+  show('scr-dashboard');
+});
+    /* SETUP */
   function wirePicker(groupId, stateKey, onPick){
     const group = $(groupId);
     group.querySelectorAll('.chip').forEach(btn=>{
@@ -505,7 +442,7 @@
   }
 
   /* --- performance history & dashboard --- */
-  function historyKey(){ return 'bq_history_' + (state.user ? state.user.phone : 'guest'); }
+  function historyKey(){ return 'bq_history_' + (state.user ? state.user.uid : 'guest'); }
   function loadHistory(){ return JSON.parse(localStorage.getItem(historyKey()) || '[]'); }
   function saveAttempt(score, total, pct){
     const hist = loadHistory();
@@ -571,8 +508,38 @@
   $('btn-change-setup').addEventListener('click', ()=> show('scr-setup'));
 
   $('chosen-level-label').textContent = 'Level 1 · Basic';
-  if(state.user){ $('welcome-name').textContent = 'Welcome back, ' + state.user.name + '!'; show('scr-welcome'); }
 })();
 </script>
+<script type="module">
+  import { watchAuth, logout } from "./auth/auth.js";
+
+  window.firebaseLogout = logout;
+
+  watchAuth((user) => {
+    if (!user) {
+      localStorage.removeItem("bq_user");
+      window.location.href = "./auth/auth.html";
+      return;
+    }
+
+    const name =
+      user.displayName ||
+      user.email?.split("@")[0] ||
+      "User";
+
+    const userData = {
+      name: name,
+      email: user.email || "",
+      uid: user.uid
+    };
+
+    window.dispatchEvent(
+      new CustomEvent("firebase-auth-state", {
+        detail: userData
+      })
+    );
+  });
+</script>
+
 </body>
 </html>

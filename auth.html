@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in · Bible Quiz</title>
+  <link rel="stylesheet" href="./auth.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand">
+      <h1>Bible Quiz</h1>
+      <p>బైబిల్ క్విజ్ · Learn, play and grow</p>
+    </div>
+    <section class="card">
+      <div class="tabs">
+        <button id="login-tab" class="tab active">Login</button>
+        <button id="register-tab" class="tab">Register</button>
+      </div>
+
+      <form id="auth-form">
+        <div id="name-wrap" class="field hide">
+          <label for="name">Name</label>
+          <input id="name" type="text" autocomplete="name" placeholder="Your name">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="password">6-digit password</label>
+          <input id="password" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••••">
+        </div>
+        <div id="confirm-wrap" class="field hide">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••">
+        </div>
+        <div id="forgot-wrap" class="forgot">
+          <button type="button" id="forgot" class="link">Forgot password?</button>
+        </div>
+        <div id="msg" class="msg"></div>
+        <button id="submit" class="btn" type="submit">Login</button>
+      </form>
+
+      <div class="or"><span>OR</span></div>
+      <button id="google" class="btn google" type="button">Continue with Google</button>
+      <p class="hint">Email/password accounts use exactly 6 digits. Firebase securely manages authentication.</p>
+    </section>
+  </main>
+
+  <script type="module">
+    import { watchAuth, loginUser, registerUser, loginWithGoogle, forgotPassword } from "./auth.js";
+
+    const $ = id => document.getElementById(id);
+    let mode = "login";
+    let busy = false;
+
+    function setMode(next) {
+      mode = next;
+      const register = mode === "register";
+      $("login-tab").classList.toggle("active", !register);
+      $("register-tab").classList.toggle("active", register);
+      $("name-wrap").classList.toggle("hide", !register);
+      $("confirm-wrap").classList.toggle("hide", !register);
+      $("forgot-wrap").classList.toggle("hide", register);
+      $("submit").textContent = register ? "Create Account" : "Login";
+      $("password").autocomplete = register ? "new-password" : "current-password";
+      clearMsg();
+    }
+    function clearMsg(){ $("msg").textContent=""; $("msg").className="msg"; }
+    function msg(text,type="error"){ $("msg").textContent=text; $("msg").className="msg "+type; }
+    function firebaseMessage(e){
+      const code=e?.code||"";
+      const map={
+        "auth/invalid-credential":"Email or password is incorrect.",
+        "auth/user-not-found":"No account exists with this email.",
+        "auth/wrong-password":"Email or password is incorrect.",
+        "auth/email-already-in-use":"This email is already registered. Please login.",
+        "auth/invalid-email":"Please enter a valid email address.",
+        "auth/popup-closed-by-user":"Google sign-in was closed.",
+        "auth/popup-blocked":"Your browser blocked the Google popup. Allow popups and try again.",
+        "auth/too-many-requests":"Too many attempts. Please wait and try again."
+      };
+      return map[code] || e?.message || "Something went wrong. Please try again.";
+    }
+    function setBusy(v){
+      busy=v;
+      $("submit").disabled=v; $("google").disabled=v;
+    }
+
+    $("login-tab").onclick=()=>setMode("login");
+    $("register-tab").onclick=()=>setMode("register");
+
+    $("auth-form").addEventListener("submit",async e=>{
+      e.preventDefault(); if(busy)return;
+      clearMsg();
+      const name=$("name").value.trim();
+      const email=$("email").value.trim();
+      const password=$("password").value;
+      const confirm=$("confirm").value;
+      if(!/^\d{6}$/.test(password)){msg("Password must be exactly 6 digits.");return;}
+      if(mode==="register" && password!==confirm){msg("Passwords do not match.");return;}
+      setBusy(true);
+      try{
+        if(mode==="register") await registerUser(name,email,password);
+        else await loginUser(email,password);
+      }catch(e){msg(firebaseMessage(e));setBusy(false);}
+    });
+
+    $("google").onclick=async()=>{
+      if(busy)return; clearMsg(); setBusy(true);
+      try{ await loginWithGoogle(); }
+      catch(e){msg(firebaseMessage(e));setBusy(false);}
+    };
+
+    $("forgot").onclick=async()=>{
+      const email=$("email").value.trim();
+      if(!email){msg("Enter your email first.");return;}
+      try{ await forgotPassword(email); msg("Password reset email sent. Check your inbox.","success"); }
+      catch(e){msg(firebaseMessage(e));}
+    };
+
+    watchAuth(user=>{
+      if(user) window.location.replace("../index.html");
+    });
+  </script>
+</body>
+</html>
